@@ -1,0 +1,22 @@
+{
+  "name": "autodex-complete",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "stripe": "^12.0.0",
+    "nodemailer": "^6.9.3"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.3.2",
+    "postcss": "^8.4.21",
+    "autoprefixer": "^10.4.13"
+  }
+}
