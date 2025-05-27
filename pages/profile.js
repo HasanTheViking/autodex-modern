@@ -1,4 +1,5 @@
 // pages/profile.js
+import { getUserOrders } from '../lib/firestore'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getUserOrders } from '../lib/firestore' // predpokladáme utilku na načítanie objednávok
