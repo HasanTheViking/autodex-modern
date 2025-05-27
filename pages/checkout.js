@@ -19,8 +19,8 @@ export default function Checkout() {
       phone: e.target.phone.value,
       address: e.target.address.value,
       city: e.target.city.value,
-      postalcode: e.target.postalcode.value
-      note: e.target.note.value
+      postalcode: e.target.postalcode.value,
+      note: e.target.note.value,
     }
 
     try {
