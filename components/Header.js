@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useCart } from './CartContext'
- import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Header() {
   const { cart, points } = useCart()
