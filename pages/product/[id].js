@@ -1,7 +1,7 @@
 // pages/product/[id].js
 import { useState } from 'react'
 import { useRouter } from 'next/router'
-import Link from 'next/link'            // ← pridali sme import Link
+import Link from 'next/link'
 import Image from 'next/image'
 import { products } from '../../data/products'
 import { useCart } from '../../components/CartContext'
@@ -20,10 +20,11 @@ export default function ProductDetail() {
     setCurrent(i => (i - 1 + product.images.length) % product.images.length)
   const next = () =>
     setCurrent(i => (i + 1) % product.images.length)
+  const handleAdd = () => addToCart({ ...product, qty })
 
   return (
-    <main className="container mx-auto p-6">
-      {/* ← ODKAZ SPÄŤ */}
+    <main className="container mx-auto p-6 pb-32 lg:pb-6">
+      {/* ← Späť */}
       <Link href="/">
         <a className="text-primary hover:underline mb-4 inline-block">
           &larr; Späť
@@ -70,20 +71,30 @@ export default function ProductDetail() {
               type="number"
               min="1"
               value={qty}
-              onChange={e => setQty(parseInt(e.target.value))}
+              onChange={e => setQty(parseInt(e.target.value) || 1)}
               className="w-20 border p-1 rounded"
             />
           </div>
 
+          {/* Desktop tlačidlo */}
           <button
-            onClick={() => {
-              addToCart({ ...product, qty })
-            }}
-            className="bg-primary text-white px-6 py-2 rounded hover:bg-red-700 transition"
+            onClick={handleAdd}
+            className="hidden lg:inline-block bg-primary text-white px-6 py-2 rounded hover:bg-red-700 transition"
           >
             Pridať do košíka
           </button>
         </div>
+      </div>
+
+      {/* Sticky Add to Cart panel (mobile only) */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t p-4 flex justify-between items-center">
+        <span className="text-lg font-bold">{product.price} €</span>
+        <button
+          onClick={handleAdd}
+          className="bg-primary text-white px-6 py-2 rounded-full hover:bg-red-700 transition"
+        >
+          Pridať do košíka
+        </button>
       </div>
     </main>
   )
