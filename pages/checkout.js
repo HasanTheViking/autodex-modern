@@ -19,7 +19,8 @@ export default function Checkout() {
       phone: e.target.phone.value,
       address: e.target.address.value,
       city: e.target.city.value,
-      postalcode: e.target.postalcode.value  // pridané PSČ
+      postalcode: e.target.postalcode.value
+      note: e.target.note.value
     }
 
     try {
@@ -87,6 +88,12 @@ export default function Checkout() {
         pattern="\d{4,5}"
         title="Zadajte platné PSČ (4–5 číslic)"
         inputMode="numeric"
+        className="border p-2 rounded w-full"
+      />
+      <input
+        name="note"
+        placeholder="Poznámka"
+        required
         className="border p-2 rounded w-full"
       />
       <button
