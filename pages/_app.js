@@ -9,9 +9,15 @@ export default function App({ Component, pageProps }) {
   return (
     <CartProvider>
       <AuthProvider>
-        <Header />
-        <Component {...pageProps} />
-        <Footer />
+        <div className="flex flex-col min-h-screen">
+          <Header />
+
+          <main className="flex-grow bg-gray-50 p-6">
+            <Component {...pageProps} />
+          </main>
+
+          <Footer />
+        </div>
       </AuthProvider>
     </CartProvider>
   )
