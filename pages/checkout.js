@@ -18,6 +18,7 @@ export default function Checkout() {
       email: e.target.email.value,
       phone: e.target.phone.value,
       address: e.target.address.value,
+      city: e.targer.city.value,
       postalcode: e.target.postalcode.value  // pridané PSČ
     }
 
@@ -68,8 +69,14 @@ export default function Checkout() {
         className="border p-2 rounded w-full"
       />
       <input
+        name="city"
+        placeholder="Mesto"
+        required
+        className="border p-2 rounded w-full"
+      />
+      <input
         name="address"
-        placeholder="Adresa"
+        placeholder="Ulica"
         required
         className="border p-2 rounded w-full"
       />
