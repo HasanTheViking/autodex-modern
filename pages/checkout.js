@@ -18,7 +18,7 @@ export default function Checkout() {
       email: e.target.email.value,
       phone: e.target.phone.value,
       address: e.target.address.value,
-      city: e.targer.city.value,
+      city: e.target.city.value,
       postalcode: e.target.postalcode.value  // pridané PSČ
     }
 
