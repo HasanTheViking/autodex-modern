@@ -1,6 +1,7 @@
 // pages/product/[id].js
 import { useState } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'            // ← pridali sme import Link
 import Image from 'next/image'
 import { products } from '../../data/products'
 import { useCart } from '../../components/CartContext'
@@ -15,11 +16,20 @@ export default function ProductDetail() {
   const [current, setCurrent] = useState(0)
   if (!product) return null
 
-  const prev = () => setCurrent(i => (i - 1 + product.images.length) % product.images.length)
-  const next = () => setCurrent(i => (i + 1) % product.images.length)
+  const prev = () =>
+    setCurrent(i => (i - 1 + product.images.length) % product.images.length)
+  const next = () =>
+    setCurrent(i => (i + 1) % product.images.length)
 
   return (
     <main className="container mx-auto p-6">
+      {/* ← ODKAZ SPÄŤ */}
+      <Link href="/">
+        <a className="text-primary hover:underline mb-4 inline-block">
+          &larr; Späť
+        </a>
+      </Link>
+
       <div className="flex flex-col md:flex-row gap-6">
         {/* carousel */}
         <div className="relative w-full md:w-1/2 h-64 md:h-[400px]">
@@ -32,21 +42,29 @@ export default function ProductDetail() {
           <button
             onClick={prev}
             className="absolute left-2 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow"
-          >‹</button>
+          >
+            ‹
+          </button>
           <button
             onClick={next}
             className="absolute right-2 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow"
-          >›</button>
+          >
+            ›
+          </button>
         </div>
 
         {/* detail */}
         <div className="flex-1 space-y-4">
           <h1 className="text-3xl font-bold">{product.name}</h1>
           <p className="text-gray-700">{product.description}</p>
-          <div className="text-2xl font-bold text-primary">{product.price} €</div>
+          <div className="text-2xl font-bold text-primary">
+            {product.price} €
+          </div>
 
           <div className="flex items-center space-x-2">
-            <label htmlFor="qty" className="font-medium">Množstvo:</label>
+            <label htmlFor="qty" className="font-medium">
+              Množstvo:
+            </label>
             <input
               id="qty"
               type="number"
