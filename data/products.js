@@ -1,4 +1,5 @@
 // data/products.js
+
 export const products = [
   {
     id: 1,
@@ -6,7 +7,11 @@ export const products = [
     price: 12.99,
     description: 'Koncentrovaný šampón pre dokonalý lesk a ochranu laku.',
     category: 'kozmetika',
-    image: '/images/shampoo.jpg'
+    images: [
+      '/images/shampoo-1.jpg',
+      '/images/shampoo-2.jpg',
+      '/images/shampoo-3.jpg'
+    ]
   },
   {
     id: 2,
@@ -14,7 +19,11 @@ export const products = [
     price: 14.99,
     description: 'Dodáva laku dlhodobú ochranu a vysoký lesk.',
     category: 'kozmetika',
-    image: '/images/wax.jpg'
+    images: [
+      '/images/wax-1.jpg',
+      '/images/wax-2.jpg',
+      '/images/wax-3.jpg'
+    ]
   },
   {
     id: 3,
@@ -22,7 +31,11 @@ export const products = [
     price: 9.99,
     description: 'Sada kvalitných utierok pre šetrné sušenie a voskovanie.',
     category: 'kozmetika',
-    image: '/images/microfiber.jpg'
+    images: [
+      '/images/microfiber-1.jpg',
+      '/images/microfiber-2.jpg',
+      '/images/microfiber-3.jpg'
+    ]
   },
   {
     id: 4,
@@ -30,7 +43,11 @@ export const products = [
     price: 199.00,
     description: 'Bezpečné pneumatiky pre zimné podmienky.',
     category: 'pneumatiky',
-    image: '/images/winter-tires.jpg'
+    images: [
+      '/images/winter-tires-1.jpg',
+      '/images/winter-tires-2.jpg',
+      '/images/winter-tires-3.jpg'
+    ]
   },
   {
     id: 5,
@@ -38,7 +55,11 @@ export const products = [
     price: 29.99,
     description: 'Praktický doplnok na jednoduché dofúkanie.',
     category: 'pneumatiky',
-    image: '/images/inflator.jpg'
+    images: [
+      '/images/inflator-1.jpg',
+      '/images/inflator-2.jpg',
+      '/images/inflator-3.jpg'
+    ]
   },
   {
     id: 6,
@@ -46,6 +67,10 @@ export const products = [
     price: 7.99,
     description: 'Držiak do mriežky ventilácie pre bezpečnú navigáciu.',
     category: 'doplnky',
-    image: '/images/phone-mount.jpg'
+    images: [
+      '/images/phone-mount-1.jpg',
+      '/images/phone-mount-2.jpg',
+      '/images/phone-mount-3.jpg'
+    ]
   },
 ]
