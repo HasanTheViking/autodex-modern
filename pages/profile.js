@@ -1,75 +1,79 @@
+// pages/profile.js
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
 import { useAuth } from '../contexts/AuthContext'
-import { db } from '../lib/firebase'
-import { collection, query, where, orderBy, onSnapshot, doc, onSnapshot as profileSnap } from 'firebase/firestore'
+import { getUserOrders } from '../lib/firestore' // predpokladáme utilku na načítanie objednávok
 
 export default function Profile() {
-  const { user, loading, logout } = useAuth()
-  const router = useRouter()
+  const { user, logout } = useAuth()
   const [orders, setOrders] = useState([])
-  const [points, setPoints] = useState(0)
+  const [loading, setLoading] = useState(true)
 
-  // Ak nie je user, presmeruj na login
-  useEffect(() => {
-    if (!loading && !user) router.push('/auth/login')
-  }, [user, loading])
-
-  // Načítanie objednávok a bodov
   useEffect(() => {
     if (!user) return
-
-    // orders
-    const q = query(
-      collection(db, 'orders'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    )
-    const off1 = onSnapshot(q, snap =>
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
-
-    // points z profilu
-    const off2 = profileSnap(
-      doc(db, 'profiles', user.uid),
-      docSnap => setPoints(docSnap.data()?.points || 0)
-    )
-
-    return () => { off1(); off2() }
+    getUserOrders(user.uid)
+      .then(fetched => setOrders(fetched))
+      .finally(() => setLoading(false))
   }, [user])
 
-  if (loading || !user) return <p>Načítavam...</p>
+  if (!user) return null
 
   return (
-    <div className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Môj účet</h1>
-      <div>
-        <p><strong>Meno:</strong> {user.displayName}</p>
-        <p><strong>E-mail:</strong> {user.email}</p>
-        <p><strong>Body:</strong> {points}</p>
-        <button onClick={logout} className="mt-2 text-red-600">Odhlásiť</button>
-      </div>
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Môj účet</h1>
 
-      <section>
-        <h2 className="text-2xl font-semibold mb-4">História objednávok</h2>
-        {orders.length === 0 && <p>Zatiaľ žiadne objednávky.</p>}
-        <ul className="space-y-4">
-          {orders.map(o => (
-            <li key={o.id} className="border p-4 rounded">
-              <div className="text-sm text-gray-500">
-                {new Date(o.createdAt.seconds * 1000).toLocaleString()}
-              </div>
-              <ul className="mt-2">
-                {o.items.map(i => (
-                  <li key={i.id}>
-                    {i.name} x{i.qty} — {(i.price * i.qty).toFixed(2)} €
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        {/* UŽÍVATEĽSKÉ INFO */}
+        <div className="col-span-1 bg-white shadow rounded-lg p-6 flex flex-col items-center">
+          <div className="w-24 h-24 bg-gray-200 rounded-full mb-4 flex items-center justify-center text-gray-500 text-2xl">
+            {user.displayName?.charAt(0) || user.email.charAt(0)}
+          </div>
+          <h2 className="text-xl font-semibold">{user.displayName}</h2>
+          <p className="text-gray-600">{user.email}</p>
+          <div className="mt-4 px-4 py-2 bg-red-100 text-red-700 font-bold rounded-full">
+            Body: {user.points || 0}
+          </div>
+          <button
+            onClick={logout}
+            className="mt-6 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition"
+          >
+            Odhlásiť sa
+          </button>
+        </div>
+
+        {/* Štatistiky / vernostný program */}
+        <div className="col-span-2 bg-white shadow rounded-lg p-6">
+          <h3 className="text-2xl font-semibold mb-4">História objednávok</h3>
+
+          {loading ? (
+            <p className="text-gray-600">Načítavam objednávky…</p>
+          ) : orders.length === 0 ? (
+            <p className="text-gray-600">Zatiaľ žiadne objednávky.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 border-b">ID</th>
+                    <th className="px-4 py-2 border-b">Dátum</th>
+                    <th className="px-4 py-2 border-b">Suma</th>
+                    <th className="px-4 py-2 border-b">Stav</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map(o => (
+                    <tr key={o.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 border-b">{o.id}</td>
+                      <td className="px-4 py-2 border-b">{new Date(o.date).toLocaleDateString()}</td>
+                      <td className="px-4 py-2 border-b">{o.total.toFixed(2)} €</td>
+                      <td className="px-4 py-2 border-b capitalize">{o.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
