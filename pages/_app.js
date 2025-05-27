@@ -1,19 +1,18 @@
+// pages/_app.js
 import '../styles/globals.css'
 import { CartProvider } from '../components/CartContext'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import { AuthProvider } from '../contexts/AuthContext'
+import { AuthProvider } from '../contexts/AuthContext'   // <-- importuj AuthProvider
 
 export default function App({ Component, pageProps }) {
   return (
     <CartProvider>
-      <div className="flex flex-col min-h-screen bg-gray-100 text-gray-900">
+      <AuthProvider>                                     // <-- obal komponenty AuthProviderom
         <Header />
-        <main className="flex-grow container mx-auto px-4 py-8">
-          <Component {...pageProps} />
-        </main>
+        <Component {...pageProps} />
         <Footer />
-      </div>
+      </AuthProvider>
     </CartProvider>
   )
 }
