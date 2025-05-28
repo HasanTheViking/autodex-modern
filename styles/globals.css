@@ -1,7 +1,17 @@
+/* styles/globals.css */
+
+/* 1. Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* 2. Zabránime horizontálnemu scrollovaniu */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* 3. Vlastné základné štýly */
 body {
   @apply bg-gray-100 text-gray-900;
 }
