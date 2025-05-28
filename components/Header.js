@@ -1,74 +1,60 @@
 // components/Header.js
 import Link from 'next/link'
-import { useCart } from '../components/CartContext'
+import { useCart } from './CartContext'
 import { useAuth } from '../contexts/AuthContext'
-import { useState } from 'react'
 
 export default function Header() {
-  const { cart, points } = useCart()
+  const { cart } = useCart()
   const { user, logout } = useAuth()
-  const [open, setOpen] = useState(false)
-  const itemCount = cart.reduce((sum, i) => sum + i.qty, 0)
+
+  // spočítame položky v košíku
+  const count = cart.reduce((sum, item) => sum + item.qty, 0)
 
   return (
-    <header className="bg-gray-900 text-white overflow-x-hidden">
-      <div className="max-w-screen-xl mx-auto flex items-center justify-between p-4">
+    <header className="bg-dark text-light shadow">
+      <div className="container mx-auto flex items-center justify-between px-4 py-3">
+        {/* Logo */}
         <Link href="/">
-          <a className="text-2xl font-bold text-red-500">AutoDex</a>
+          <a className="text-2xl font-bold text-primary">AutoDex</a>
         </Link>
 
-        <nav className="flex flex-wrap items-center space-x-3">
+        {/* Hlavná navigácia */}
+        <nav className="flex flex-wrap items-center space-x-4 overflow-x-auto">
           <Link href="/">
-            <a className="hover:text-red-400">Domov</a>
+            <a className="hover:text-primary">Domov</a>
           </Link>
 
           <Link href="/kosik">
-            <a className="relative hover:text-red-400">
+            <a className="relative hover:text-primary">
               Košík
-              {itemCount > 0 && (
-                <span className="absolute -top-2 -right-3 bg-red-500 text-xs rounded-full px-1">
-                  {itemCount}
+              {count > 0 && (
+                <span className="absolute -top-2 -right-4 bg-primary text-white text-xs rounded-full px-1">
+                  {count}
                 </span>
               )}
             </a>
           </Link>
 
-          {user ? (
-            <div className="relative">
-              <button
-                onClick={() => setOpen(o => !o)}
-                className="flex items-center space-x-2 hover:text-red-400 focus:outline-none"
-              >
-                <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
-                  {user.displayName?.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </div>
-                <span>{user.displayName}</span>
-              </button>
-              {open && (
-                <div className="absolute right-0 mt-2 w-40 bg-white text-gray-900 rounded shadow-lg z-10">
-                  <Link href="/profile">
-                    <a className="block px-4 py-2 hover:bg-gray-100">Môj účet</a>
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                  >
-                    Odhlásiť
-                  </button>
-                  <div className="px-4 py-2 text-sm text-gray-600">
-                    Body: {points}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
+          {!user ? (
             <>
               <Link href="/auth/register">
-                <a className="hover:text-red-400">Registrovať</a>
+                <a className="hover:text-primary">Registrovať</a>
               </Link>
               <Link href="/auth/login">
-                <a className="hover:text-red-400">Prihlásiť</a>
+                <a className="hover:text-primary">Prihlásiť</a>
               </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/profile">
+                <a className="hover:text-primary">Profil</a>
+              </Link>
+              <button
+                onClick={logout}
+                className="hover:text-primary focus:outline-none"
+              >
+                Odhlásiť
+              </button>
             </>
           )}
         </nav>
