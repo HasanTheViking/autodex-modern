@@ -11,13 +11,13 @@ export default function Header() {
   const itemCount = cart.reduce((sum, i) => sum + i.qty, 0)
 
   return (
-    <header className="bg-gray-900 text-white">
-      <div className="container mx-auto flex items-center justify-between p-4">
+    <header className="bg-gray-900 text-white overflow-x-hidden">
+      <div className="max-w-screen-xl mx-auto flex items-center justify-between p-4">
         <Link href="/">
           <a className="text-2xl font-bold text-red-500">AutoDex</a>
         </Link>
 
-        <nav className="flex-wrap items-center space-x-4">
+        <nav className="flex flex-wrap items-center space-x-3">
           <Link href="/">
             <a className="hover:text-red-400">Domov</a>
           </Link>
@@ -45,7 +45,7 @@ export default function Header() {
                 <span>{user.displayName}</span>
               </button>
               {open && (
-                <div className="absolute right-0 mt-2 w-40 bg-white text-gray-900 rounded shadow-lg">
+                <div className="absolute right-0 mt-2 w-40 bg-white text-gray-900 rounded shadow-lg z-10">
                   <Link href="/profile">
                     <a className="block px-4 py-2 hover:bg-gray-100">Môj účet</a>
                   </Link>
