@@ -17,7 +17,7 @@ export default function Header() {
           <a className="text-2xl font-bold text-red-500">AutoDex</a>
         </Link>
 
-        <nav className="flex items-center space-x-6">
+        <nav className="flex-wrap items-center space-x-4">
           <Link href="/">
             <a className="hover:text-red-400">Domov</a>
           </Link>
