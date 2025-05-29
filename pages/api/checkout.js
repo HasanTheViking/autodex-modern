@@ -1,84 +1,70 @@
 // pages/api/checkout.js
 import Stripe from 'stripe'
+import { db } from '../../lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import nodemailer from 'nodemailer'
-import { db } from '../../lib/firebase'   // <-- presne takto!
-
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
+    return res.status(405).json({ error: 'Metóda nie je povolená' })
   }
 
   try {
-    const { cart, data } = req.body
+    const { cartItems, user, address, contact, total } = req.body
 
-    // 1) Ulož objednávku do Firestore
-    const orderRef = await db.collection('orders').add({
-      userId: data.uid || null,
-      items: cart,
-      customer: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        city: data.city,
-        address: data.address,
-        postalcode: data.postalcode,
-        note: data.note,
-      },
-      status: 'pending',
-      createdAt: new Date(),
-    })
+    // 1) Uložíme objednávku do Firestore
+    const orderRef = await addDoc(
+      collection(db, 'orders'),
+      {
+        uid: user.uid,
+        items: cartItems,
+        address,
+        contact,
+        total,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      }
+    )
 
-    // 2) Vytvor Stripe Checkout session
+    // 2) Vytvoríme Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: cart.map(item => ({
+      line_items: cartItems.map(item => ({
         price_data: {
           currency: 'eur',
           product_data: { name: item.name },
-          unit_amount: Math.round(item.price * 100),
+          unit_amount: Math.round(item.price * 100)
         },
-        quantity: item.qty,
+        quantity: item.qty
       })),
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL}/kosik`,
-      metadata: {
-        orderId: orderRef.id,
-      },
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?orderId=${orderRef.id}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout`
     })
 
-    // 3) Pošli email potvrdenia (voliteľné)
+    // 3) (voliteľne) pošleme potvrdenie emailom cez nodemailer
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT ?? '465'),
-      secure: true,
+      port: Number(process.env.SMTP_PORT),
       auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
     })
-
     await transporter.sendMail({
-      from: `"AutoDex" <${process.env.MAIL_USER}>`,
-      to: data.email,
+      from: `"AutoDex" <${process.env.SMTP_USER}>`,
+      to: contact.email,
       subject: 'Potvrdenie objednávky',
-      text: `Ďakujeme za objednávku ${orderRef.id}. Pokračujte na platbu: ${session.url}`,
+      text: `Ďakujeme za objednávku #${orderRef.id}. Zaplaťte prosím tu: ${session.url}`
     })
 
-    // 4) vráť klientovi URL pre platbu
+    // 4) Vrátime klientovi redirect URL na Stripe
     res.status(200).json({ url: session.url })
   } catch (err) {
     console.error('❌ Checkout error:', err)
-    // Naplno vrátime chybovú správu, aby si ju videl počas debugovania
+    // dočasne vrátime presnú chybu, neskôr môžeš zmeniť späť na generické hlásenie
     return res.status(500).json({ error: err.message || String(err) })
   }
 }
