@@ -1,62 +1,124 @@
 // pages/checkout.js
-import { useCart } from '../components/CartContext'
 import { useState } from 'react'
-import { useRouter } from 'next/router'
+import { useCart } from '../components/CartContext'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Checkout() {
-  const { cart, clearCart } = useCart()
-  const router = useRouter()
-  const isCod = router.query.cod === 'true'
-  const [sending, setSending] = useState(false)
+  const { cartItems, total } = useCart()
+  const { user } = useAuth()
+  const [processing, setProcessing] = useState(false)
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSending(true)
+    if (!user) {
+      alert('Musíš byť prihlásený na dokončenie objednávky.')
+      return
+    }
+    setProcessing(true)
 
-    const data = {
-      name: e.target.name.value,
-      email: e.target.email.value,
-      phone: e.target.phone.value,
-      city: e.target.city.value,
-      address: e.target.address.value,
-      postalcode: e.target.postalcode.value,
-      note: e.target.note?.value || ''
+    // Zober hodnoty z formulára
+    const address = {
+      street:  e.target.street.value,
+      city:    e.target.city.value,
+      zip:     e.target.zip.value
+    }
+    const contact = {
+      name:    user.displayName || '',
+      email:   user.email,
+      phone:   e.target.phone.value
     }
 
     try {
-      const res = await fetch(isCod ? '/api/order' : '/api/checkout', {
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, data })
+        body: JSON.stringify({
+          cartItems,
+          total,
+          address,
+          contact,
+          user: { uid: user.uid }     // <-- UID posielame sem
+        })
       })
-      const json = await res.json()
-
-      if (!isCod && json.url) {
-        window.location = json.url
-      } else if (isCod && json.ok) {
-        clearCart()
-        router.push('/kontakt?sent=true')
-      } else {
-        throw new Error(json.error || 'Chyba pri spracovaní')
-      }
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      window.location.href = url    // presmerovanie na Stripe
     } catch (err) {
-      alert('Chyba: ' + err.message)
-      setSending(false)
+      alert('Chyba pri spracovaní objednávky: ' + err.message)
+      setProcessing(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
-      <input name="name" placeholder="Meno a priezvisko" required className="border p-2 rounded w-full" />
-      <input name="email" type="email" placeholder="E-mail" required className="border p-2 rounded w-full" />
-      <input name="phone" type="tel" placeholder="Telefón" required pattern="\d*" inputMode="numeric" className="border p-2 rounded w-full" />
-      <input name="city" placeholder="Mesto" required className="border p-2 rounded w-full" />
-      <input name="address" placeholder="Ulica a číslo" required className="border p-2 rounded w-full" />
-      <input name="postalcode" placeholder="PSČ" required pattern="\d{4,5}" title="4–5 číslic" inputMode="numeric" className="border p-2 rounded w-full" />
-      <textarea name="note" placeholder="Poznámka (voliteľné)" className="border p-2 rounded w-full" />
-      <button type="submit" disabled={sending} className="bg-primary text-white px-4 py-2 w-full rounded">
-        {sending ? 'Spracovávam...' : isCod ? 'Odoslať objednávku' : 'Pokračovať na platbu'}
-      </button>
-    </form>
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Doprava a platba</h1>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block font-medium">Meno a priezvisko</label>
+          <input
+            name="name"
+            value={user.displayName || ''}
+            disabled
+            className="w-full p-2 border rounded bg-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block font-medium">E-mail</label>
+          <input
+            name="email"
+            value={user.email}
+            disabled
+            className="w-full p-2 border rounded bg-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block font-medium">Telefón</label>
+          <input
+            name="phone"
+            type="tel"
+            required
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block font-medium">Ulica a číslo</label>
+          <input
+            name="street"
+            required
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium">Mesto</label>
+            <input
+              name="city"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <label className="block font-medium">PSČ</label>
+            <input
+              name="zip"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+        </div>
+
+        <div className="text-xl font-bold">
+          Suma k úhrade: {total.toFixed(2)} €
+        </div>
+
+        <button
+          type="submit"
+          disabled={processing}
+          className="w-full py-3 bg-primary text-white rounded disabled:opacity-50"
+        >
+          {processing ? 'Spracovávam…' : 'Pokračovať na platbu'}
+        </button>
+      </form>
+    </div>
   )
 }
