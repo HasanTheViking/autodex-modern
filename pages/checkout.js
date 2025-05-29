@@ -1,56 +1,62 @@
-// pages/api/checkout.js
+// pages/checkout.js
+import { useCart } from '../components/CartContext'
+import { useState } from 'react'
+import { useRouter } from 'next/router'
 
-import Stripe from 'stripe'
-import { db } from '../../lib/firebase'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+export default function Checkout() {
+  const { cart, clearCart } = useCart()
+  const router = useRouter()
+  const isCod = router.query.cod === 'true'
+  const [sending, setSending] = useState(false)
 
-// Inicializácia Stripe s kľúčom z ENV
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  const handleSubmit = async e => {
+    e.preventDefault()
+    setSending(true)
 
-export default async function handler(req, res) {
-  // --- debug výpisy – skontroluj, či ENV premenné existujú
-  console.log('🔑 STRIPE_SECRET_KEY:', !!process.env.STRIPE_SECRET_KEY)
-  console.log('🌐 NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL)
+    const data = {
+      name: e.target.name.value,
+      email: e.target.email.value,
+      phone: e.target.phone.value,
+      city: e.target.city.value,
+      address: e.target.address.value,
+      postalcode: e.target.postalcode.value,
+      note: e.target.note?.value || ''
+    }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    try {
+      const res = await fetch(isCod ? '/api/order' : '/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart, data })
+      })
+      const json = await res.json()
+
+      if (!isCod && json.url) {
+        window.location = json.url
+      } else if (isCod && json.ok) {
+        clearCart()
+        router.push('/kontakt?sent=true')
+      } else {
+        throw new Error(json.error || 'Chyba pri spracovaní')
+      }
+    } catch (err) {
+      alert('Chyba: ' + err.message)
+      setSending(false)
+    }
   }
 
-  const { cart, data } = req.body
-
-  try {
-    // Vytvorenie Stripe Checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: cart.map(item => ({
-        price_data: {
-          currency: 'eur',
-          product_data: {
-            name: item.name,
-          },
-          unit_amount: Math.round(item.price * 100), // v centoch
-        },
-        quantity: item.qty,
-      })),
-      mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/kontakt?sent=true`,
-      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/kosik`,
-    })
-
-    // Uloženie objednávky do Firestore
-    await addDoc(collection(db, 'orders'), {
-      ...data,              // meno, email, telefón, adresa, mesto, PSČ, poznámka
-      items: cart,          // obsah košíka
-      status: 'pending',    // počiatočný stav
-      createdAt: serverTimestamp(),
-      sessionId: session.id // prepojenie na Stripe session
-    })
-
-    // Vrátime klientovi URL pre presmerovanie na Stripe Checkout
-    return res.status(200).json({ url: session.url })
-  } catch (err) {
-    console.error('❌ Checkout error:', err)
-    // Pre testovanie pošleme klientovi chybovú správu
-    return res.status(500).json({ error: err.message || 'Chyba pri spracovaní objednávky' })
-  }
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
+      <input name="name" placeholder="Meno a priezvisko" required className="border p-2 rounded w-full" />
+      <input name="email" type="email" placeholder="E-mail" required className="border p-2 rounded w-full" />
+      <input name="phone" type="tel" placeholder="Telefón" required pattern="\d*" inputMode="numeric" className="border p-2 rounded w-full" />
+      <input name="city" placeholder="Mesto" required className="border p-2 rounded w-full" />
+      <input name="address" placeholder="Ulica a číslo" required className="border p-2 rounded w-full" />
+      <input name="postalcode" placeholder="PSČ" required pattern="\d{4,5}" title="4–5 číslic" inputMode="numeric" className="border p-2 rounded w-full" />
+      <textarea name="note" placeholder="Poznámka (voliteľné)" className="border p-2 rounded w-full" />
+      <button type="submit" disabled={sending} className="bg-primary text-white px-4 py-2 w-full rounded">
+        {sending ? 'Spracovávam...' : isCod ? 'Odoslať objednávku' : 'Pokračovať na platbu'}
+      </button>
+    </form>
+  )
 }
