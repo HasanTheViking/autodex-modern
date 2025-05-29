@@ -11,13 +11,16 @@ export default function App({ Component, pageProps }) {
     <CartProvider>
       <AuthProvider>
         <div className="flex flex-col min-h-screen">
+          {/* horná lišta + cookie upozornenie */}
           <Header />
           <CookieBanner />
 
+          {/* hlavný obsah (flex-grow = vyplní všetok zostávajúci priestor) */}
           <main className="flex-grow bg-gray-50 p-6">
             <Component {...pageProps} />
           </main>
 
+          {/* pätička vždy dole */}
           <Footer />
         </div>
       </AuthProvider>
