@@ -1,57 +1,49 @@
 // pages/api/checkout.js
 
-import nodemailer from 'nodemailer'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2022-11-15',
+})
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Metóda nie je povolená' })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { cart, data } = req.body
+  const { cart = [], data = {} } = req.body
 
   try {
-    // vytvorenie transportéra pre odosielanie emailu
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: +process.env.SMTP_PORT,
-      secure: +process.env.SMTP_PORT === 465, // true pre 465, false pre ostatné
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
+    // Vytvoriť session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: cart.map(item => ({
+        price_data: {
+          currency: 'eur',
+          product_data: { name: item.name },
+          unit_amount: Math.round(item.price * 100),
+        },
+        quantity: item.qty,
+      })),
+      mode: 'payment',
+      success_url: `${req.headers.origin}/kontakt?sent=true`,
+      cancel_url: `${req.headers.origin}/checkout?cod=false`,
+      metadata: {
+        // prenesiem aj meno/telefon/adresu na neskoršie spracovanie webhookom
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        city: data.city,
+        address: data.address,
+        postalcode: data.postalcode,
+        note: data.note || '',
+      },
     })
 
-    // vygenerovanie HTML pre položky košíka
-    const itemsHtml = cart
-      .map(
-        (i) =>
-          `<li>${i.name} — ${i.qty}×${i.price.toFixed(2)} € = ${(i.qty * i.price).toFixed(2)} €</li>`
-      )
-      .join('')
-
-    // poslanie správy
-    await transporter.sendMail({
-      from: `"AutoDex" <${process.env.SMTP_USER}>`,
-      to: process.env.NOTIFY_TO,
-      subject: `Nová objednávka od ${data.name}`,
-      html: `
-        <h1>Nová objednávka</h1>
-        <p><strong>Meno:</strong> ${data.name}</p>
-        <p><strong>E-mail:</strong> ${data.email}</p>
-        <p><strong>Telefón:</strong> ${data.phone}</p>
-        <p><strong>Adresa:</strong> ${data.city}, ${data.address}, ${data.postalcode}</p>
-        <p><strong>Poznámka:</strong> ${data.note || '-'}</p>
-        <h2>Položky:</h2>
-        <ul>${itemsHtml}</ul>
-        <p><strong>Celkom k úhrade:</strong> ${cart
-          .reduce((sum, i) => sum + i.price * i.qty, 0)
-          .toFixed(2)} €</p>
-      `
-    })
-
-    return res.status(200).json({ ok: true })
+    // Poslať URL pre presmerovanie
+    return res.status(200).json({ url: session.url })
   } catch (err) {
-    console.error('Chyba pri odosielaní e-mailu:', err)
-    return res.status(500).json({ error: 'Chyba pri spracovaní objednávky' })
+    console.error('🛑 CHECKOUT API ERROR:', err)
+    return res.status(500).json({ error: 'Chyba pri vytváraní platobnej session' })
   }
 }
