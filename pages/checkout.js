@@ -1,1 +1,0 @@
-remove pages/checkout.js (no longer needed)
