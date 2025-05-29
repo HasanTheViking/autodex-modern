@@ -1,49 +1,68 @@
 // pages/api/checkout.js
-
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2022-11-15',
-})
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../lib/firebase'
+import nodemailer from 'nodemailer'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { cart = [], data = {} } = req.body
-
   try {
-    // Vytvoriť session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: cart.map(item => ({
-        price_data: {
-          currency: 'eur',
-          product_data: { name: item.name },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.qty,
-      })),
-      mode: 'payment',
-      success_url: `${req.headers.origin}/kontakt?sent=true`,
-      cancel_url: `${req.headers.origin}/checkout?cod=false`,
-      metadata: {
-        // prenesiem aj meno/telefon/adresu na neskoršie spracovanie webhookom
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        city: data.city,
-        address: data.address,
-        postalcode: data.postalcode,
-        note: data.note || '',
-      },
+    const { cart, data } = req.body
+    if (!cart || !data) {
+      return res.status(400).json({ error: 'Missing cart or data' })
+    }
+
+    // 1) Uložíme objednávku do Firestore
+    const docRef = await addDoc(collection(db, 'orders'), {
+      ...data,
+      items: cart,
+      createdAt: serverTimestamp(),
+      status: 'pending',
+      userId: data.uid || ''
     })
 
-    // Poslať URL pre presmerovanie
-    return res.status(200).json({ url: session.url })
+    // 2) Pripravíme a odošleme e-mail cez Nodemailer
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,           // napr. "smtp.gmail.com"
+      port: Number(process.env.SMTP_PORT),   // napr. 465
+      secure: true,
+      auth: {
+        user: process.env.SMTP_USER,         // tvoj gmail (alebo iný SMTP user)
+        pass: process.env.SMTP_PASS          // app-heslo z Gmailu
+      }
+    })
+
+    const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0)
+
+    const mailOptions = {
+      from: `"AutoDex E-shop" <${process.env.SMTP_USER}>`,
+      to: process.env.NOTIFY_TO,             // sem sa ti pošlú objednávky
+      subject: `Nová objednávka #${docRef.id}`,
+      text: `
+Nová objednávka ${docRef.id}
+
+Meno: ${data.name}
+Email: ${data.email}
+Telefón: ${data.phone}
+Adresa: ${data.address}, ${data.city}, ${data.postalcode}
+Poznámka: ${data.note || '-'}
+
+Produkty:
+${cart.map(i => `• ${i.name} x ${i.qty} = ${(i.price * i.qty).toFixed(2)} €`).join('\n')}
+
+Celková suma: ${total.toFixed(2)} €
+      `
+    }
+
+    await transporter.sendMail(mailOptions)
+
+    // 3) Vrátime úspech na klienta
+    return res.status(200).json({ ok: true, orderId: docRef.id })
+
   } catch (err) {
-    console.error('🛑 CHECKOUT API ERROR:', err)
-    return res.status(500).json({ error: 'Chyba pri vytváraní platobnej session' })
+    console.error('Checkout error:', err)
+    return res.status(500).json({ error: 'Chyba pri spracovaní objednávky' })
   }
 }
