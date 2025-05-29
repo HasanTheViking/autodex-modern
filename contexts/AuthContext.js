@@ -1,30 +1,39 @@
 // contexts/AuthContext.js
 import { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { auth } from '../lib/firebase'
+import { auth } from '../lib/firebase'                     // <-- sem importuj to čo si exportoval
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut
+} from 'firebase/auth'
 
-const AuthContext = createContext({ user: null, loading: true })
+const AuthContext = createContext({})
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // sledovanie stavu prihlásenia
+    // sledujeme stav prihlásenia
     const unsubscribe = onAuthStateChanged(auth, u => {
       setUser(u)
       setLoading(false)
     })
-    return () => unsubscribe()
+    return unsubscribe
   }, [])
 
-  const logout = () => signOut(auth)
+  const login    = (email, pass) => signInWithEmailAndPassword(auth, email, pass)
+  const register = (email, pass) => createUserWithEmailAndPassword(auth, email, pass)
+  const logout   = ()             => signOut(auth)
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
-      {children}
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  return useContext(AuthContext)
+}
