@@ -1,5 +1,5 @@
 // pages/api/checkout.js
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import nodemailer from 'nodemailer'
 
@@ -7,61 +7,56 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
-  
-  try {
-    const { cart, data } = req.body
-    if (!cart || !data) {
-      return res.status(400).json({ error: 'Missing cart or data' })
-    }
 
-    // 1) Uloženie do Firestore
-    const docRef = await addDoc(collection(db, 'orders'), {
-      ...data,
+  const { cart, data } = req.body
+
+  try {
+    // 1) Uloženie objednávky do Firestore
+    const orderRef = await addDoc(collection(db, 'orders'), {
       items: cart,
-      createdAt: serverTimestamp(),
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+      city: data.city,
+      postalcode: data.postalcode,
+      note: data.note || '',
+      uid: data.uid || '',
       status: 'pending',
-      userId: data.uid || ''
+      createdAt: serverTimestamp()
     })
 
-    // 2) Príprava a odoslanie e-mailu
+    // 2) Odoslanie e-mailu s notifikáciou
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,         // napr. "smtp.gmail.com"
-      port: Number(process.env.SMTP_PORT), // napr. 465
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
       secure: true,
       auth: {
-        user: process.env.SMTP_USER,       // tvoj SMTP user (e-mail)
-        pass: process.env.SMTP_PASS        // app-password z Gmailu
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     })
 
-    // spočítanie súčtu
-    const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0)
-
     await transporter.sendMail({
-      from: `"AutoDex E-shop" <${process.env.SMTP_USER}>`,
-      to: process.env.NOTIFY_TO,           // kam má prísť notifikácia
-      subject: `Nová objednávka #${docRef.id}`,
+      from: process.env.SMTP_USER,
+      to: process.env.NOTIFY_TO,
+      subject: `Nová objednávka #${orderRef.id}`,
       text: `
-Nová objednávka ${docRef.id}
-
-Meno:       ${data.name}
-E-mail:     ${data.email}
-Telefón:    ${data.phone}
-Adresa:     ${data.address}, ${data.city}, ${data.postalcode}
-Poznámka:   ${data.note || '-'}
-
-Produkty:
-${cart.map(i => `• ${i.name} x${i.qty} = ${(i.price * i.qty).toFixed(2)} €`).join('\n')}
-
-Celkovo:    ${total.toFixed(2)} €
+Objednávka: ${orderRef.id}
+Meno: ${data.name}
+E-mail: ${data.email}
+Telefón: ${data.phone}
+Adresa: ${data.address}, ${data.city}, ${data.postalcode}
+Poznámka: ${data.note || '-'}
+Suma: ${cart.reduce((sum, i) => sum + i.price * i.qty, 0).toFixed(2)} €
       `
     })
 
-    // 3) Odpoveď pre klienta
-    return res.status(200).json({ ok: true, orderId: docRef.id })
-
+    // 3) Všetko OK
+    return res.status(200).json({ ok: true })
   } catch (err) {
     console.error('❌ Checkout error:', err)
-    return res.status(500).json({ error: 'Chyba pri spracovaní objednávky' })
+    // dočasne pošli klientovi presné err.message, aby sme videli, kde to padá
+    return res.status(500).json({ error: err.message || String(err) })
   }
 }
