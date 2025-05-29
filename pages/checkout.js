@@ -1,33 +1,67 @@
-// napr. vo funkcii handleSubmit v pages/checkout.js
-const handleSubmit = async e => {
-  e.preventDefault();
-  try {
-    // posielame objednávku na server
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ /* všetky polia z formulára + items */ })
-    });
-    const data = await res.json();
-    console.log("💡 checkout response:", data);
+// pages/checkout.js
+import { useState } from 'react'
+import { useCart } from '../components/CartContext'
+import { useAuth } from '../contexts/AuthContext'
 
-    if (!res.ok) {
-      // server vrátil error status
-      throw new Error(data.error || "Neznáma chyba z API");
+export default function Checkout() {
+  const { cartItems, total } = useCart()
+  const { user }           = useAuth()
+  const [processing, setProcessing] = useState(false)
+
+  const handleSubmit = async e => {
+    e.preventDefault()
+    if (!user) {
+      alert('Musíš byť prihlásený')
+      return
+    }
+    setProcessing(true)
+
+    const address = {
+      street: e.target.street.value,
+      city:   e.target.city.value,
+      zip:    e.target.zip.value
+    }
+    const contact = {
+      name:  user.displayName || '',
+      email: user.email,
+      phone: e.target.phone.value
     }
 
-    // v prípade Stripe
-    if (data.sessionId) {
-      const stripe = await getStripe(); // tvoje volanie na init Stripe
-      const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      if (error) throw error;
-    } else if (data.orderCreated) {
-      // napr. pri platbe dobierkou ťa presmerujem na stránku s potvrdením
-      window.location.href = "/order-confirmation";
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cartItems,
+          total,
+          address,
+          contact,
+          user: { uid: user.uid }
+        })
+      })
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      window.location.href = url
+    } catch (err) {
+      alert('Chyba: ' + err.message)
+      setProcessing(false)
     }
-
-  } catch (err) {
-    console.error("❌ Checkout error:", err);
-    alert("Chyba pri platbe: " + err.message);
   }
-};
+
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Doprava a platba</h1>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ... tvoje polia pre street, city, zip, phone ... */}
+        <div className="text-xl font-bold">Suma: {total.toFixed(2)} €</div>
+        <button
+          type="submit"
+          disabled={processing}
+          className="w-full py-3 bg-primary text-white rounded"
+        >
+          {processing ? 'Spracovávam…' : 'Pokračovať na platbu'}
+        </button>
+      </form>
+    </div>
+  )
+}
