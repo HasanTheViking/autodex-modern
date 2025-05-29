@@ -1,158 +1,56 @@
-// pages/checkout.js
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
-import { useCart } from '../components/CartContext'
+// pages/api/checkout.js
 
-export default function Checkout() {
-  const router = useRouter()
-  const isCod = router.query.cod === 'true'
-  const { cart, clearCart } = useCart()
-  const [sending, setSending] = useState(false)
-  const [total, setTotal] = useState(0)
+import Stripe from 'stripe'
+import { db } from '../../lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
-  // prepocítame total
-  useEffect(() => {
-    setTotal(cart.reduce((sum, i) => sum + i.price * i.qty, 0))
-  }, [cart])
+// Inicializácia Stripe s kľúčom z ENV
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
-  const handleSubmit = async e => {
-    e.preventDefault()
-    setSending(true)
-    const data = {
-      name: e.target.name.value,
-      email: e.target.email.value,
-      phone: e.target.phone.value,
-      city: e.target.city.value,
-      address: e.target.address.value,
-      postalcode: e.target.postalcode.value,
-      note: e.target.note.value,
-    }
-    try {
-      const res = await fetch(
-        isCod ? '/api/order' : '/api/checkout',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cart, data }),
-        }
-      )
-      const json = await res.json()
-      if (!isCod && json.url) {
-        window.location = json.url
-      } else if (isCod && json.ok) {
-        clearCart()
-        router.push('/?ordered=true')
-      } else {
-        throw new Error(json.error || 'Chyba pri spracovaní')
-      }
-    } catch (err) {
-      alert('Chyba: ' + err.message)
-      setSending(false)
-    }
+export default async function handler(req, res) {
+  // --- debug výpisy – skontroluj, či ENV premenné existujú
+  console.log('🔑 STRIPE_SECRET_KEY:', !!process.env.STRIPE_SECRET_KEY)
+  console.log('🌐 NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL)
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  if (cart.length === 0) {
-    return (
-      <div className="container mx-auto py-6 text-center text-gray-600">
-        <p>Váš košík je prázdny.</p>
-        <button
-          onClick={() => router.push('/')}
-          className="mt-4 bg-primary text-white px-4 py-2 rounded hover:bg-red-700 transition"
-        >
-          Vrátiť sa na nákup
-        </button>
-      </div>
-    )
-  }
+  const { cart, data } = req.body
 
-  return (
-    <div className="container mx-auto py-6">
-      <div className="max-w-md mx-auto bg-white shadow rounded-lg overflow-hidden">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold mb-4 text-primary">
-            {isCod ? 'Objednávka na dobierku' : 'Pokračovať na platbu'}
-          </h1>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium">Meno a priezvisko</label>
-              <input
-                name="name"
-                required
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">E-mail</label>
-              <input
-                name="email"
-                type="email"
-                required
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Telefón</label>
-              <input
-                name="phone"
-                type="tel"
-                required
-                pattern="\d*"
-                inputMode="numeric"
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Mesto</label>
-              <input
-                name="city"
-                required
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Ulica a číslo</label>
-              <input
-                name="address"
-                required
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">PSČ</label>
-              <input
-                name="postalcode"
-                required
-                pattern="\d{4,5}"
-                title="Zadajte platné PSČ (4–5 číslic)"
-                inputMode="numeric"
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Poznámka (voliteľné)</label>
-              <textarea
-                name="note"
-                className="mt-1 w-full border rounded p-2 focus:ring-primary focus:border-primary"
-                rows="3"
-              />
-            </div>
-            <div className="text-right text-lg font-bold">
-              Suma k úhrade: {total.toFixed(2)} €
-            </div>
-            <button
-              type="submit"
-              disabled={sending}
-              className="w-full bg-primary text-white py-3 rounded hover:bg-red-700 transition disabled:opacity-50"
-            >
-              {sending
-                ? 'Spracovávam...'
-                : isCod
-                ? 'Odoslať objednávku'
-                : 'Prejsť na platbu'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
+  try {
+    // Vytvorenie Stripe Checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: cart.map(item => ({
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: item.name,
+          },
+          unit_amount: Math.round(item.price * 100), // v centoch
+        },
+        quantity: item.qty,
+      })),
+      mode: 'payment',
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/kontakt?sent=true`,
+      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/kosik`,
+    })
+
+    // Uloženie objednávky do Firestore
+    await addDoc(collection(db, 'orders'), {
+      ...data,              // meno, email, telefón, adresa, mesto, PSČ, poznámka
+      items: cart,          // obsah košíka
+      status: 'pending',    // počiatočný stav
+      createdAt: serverTimestamp(),
+      sessionId: session.id // prepojenie na Stripe session
+    })
+
+    // Vrátime klientovi URL pre presmerovanie na Stripe Checkout
+    return res.status(200).json({ url: session.url })
+  } catch (err) {
+    console.error('❌ Checkout error:', err)
+    // Pre testovanie pošleme klientovi chybovú správu
+    return res.status(500).json({ error: err.message || 'Chyba pri spracovaní objednávky' })
+  }
 }
