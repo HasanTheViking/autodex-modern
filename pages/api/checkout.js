@@ -1,66 +1,57 @@
-// pages/checkout.js
-import { useCart } from '../components/CartContext'
-import { useState } from 'react'
-import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'      // <-- pridaj
+// pages/api/checkout.js
 
-export default function Checkout() {
-  const { cart, clearCart } = useCart()
-  const { user } = useAuth()                           // <-- pridaj
-  const router = useRouter()
-  const isCod = router.query.cod === 'true'
-  const [sending, setSending] = useState(false)
+import nodemailer from 'nodemailer'
 
-  const handleSubmit = async e => {
-    e.preventDefault()
-    setSending(true)
-
-    const data = {
-      uid: user?.uid || '',                            // <-- tu
-      name: e.target.name.value,
-      email: e.target.email.value,
-      phone: e.target.phone.value,
-      city: e.target.city.value,
-      address: e.target.address.value,
-      postalcode: e.target.postalcode.value,
-      note: e.target.note.value                     // <-- tu pridaj poznámku
-    }
-
-    try {
-      const res = await fetch('/api/order', {        //  pri COD vždy POST na /api/order
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart, data })
-      })
-      const json = await res.json()                  // teraz už vždy validné JSON
-
-      if (json.ok) {
-        clearCart()
-        router.push('/kontakt?sent=true')
-      } else {
-        throw new Error(json.error || 'Chyba pri spracovaní')
-      }
-    } catch (err) {
-      alert('Chyba: ' + err.message)
-      setSending(false)
-    }
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Metóda nie je povolená' })
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-md mx-auto">
-      {/* ... ostatné inputy ... */}
-      <input
-        name="note"
-        placeholder="Poznámka"
-        className="border p-2 rounded w-full"
-      />
-      <button
-        type="submit"
-        disabled={sending}
-        className="bg-primary text-white px-4 py-2 w-full rounded"
-      >
-        {sending ? 'Spracovávam...' : 'Odoslať objednávku'}
-      </button>
-    </form>
-  )
+  const { cart, data } = req.body
+
+  try {
+    // vytvorenie transportéra pre odosielanie emailu
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: +process.env.SMTP_PORT,
+      secure: +process.env.SMTP_PORT === 465, // true pre 465, false pre ostatné
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    })
+
+    // vygenerovanie HTML pre položky košíka
+    const itemsHtml = cart
+      .map(
+        (i) =>
+          `<li>${i.name} — ${i.qty}×${i.price.toFixed(2)} € = ${(i.qty * i.price).toFixed(2)} €</li>`
+      )
+      .join('')
+
+    // poslanie správy
+    await transporter.sendMail({
+      from: `"AutoDex" <${process.env.SMTP_USER}>`,
+      to: process.env.NOTIFY_TO,
+      subject: `Nová objednávka od ${data.name}`,
+      html: `
+        <h1>Nová objednávka</h1>
+        <p><strong>Meno:</strong> ${data.name}</p>
+        <p><strong>E-mail:</strong> ${data.email}</p>
+        <p><strong>Telefón:</strong> ${data.phone}</p>
+        <p><strong>Adresa:</strong> ${data.city}, ${data.address}, ${data.postalcode}</p>
+        <p><strong>Poznámka:</strong> ${data.note || '-'}</p>
+        <h2>Položky:</h2>
+        <ul>${itemsHtml}</ul>
+        <p><strong>Celkom k úhrade:</strong> ${cart
+          .reduce((sum, i) => sum + i.price * i.qty, 0)
+          .toFixed(2)} €</p>
+      `
+    })
+
+    return res.status(200).json({ ok: true })
+  } catch (err) {
+    console.error('Chyba pri odosielaní e-mailu:', err)
+    return res.status(500).json({ error: 'Chyba pri spracovaní objednávky' })
+  }
 }
