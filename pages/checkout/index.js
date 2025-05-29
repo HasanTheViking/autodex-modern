@@ -1,11 +1,11 @@
 // pages/checkout/index.js
 import { useState } from 'react'
-import { useCart } from '../components/CartContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useCart } from '../../components/CartContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function Checkout() {
   const { cartItems, total } = useCart()
-  const { user }           = useAuth()
+  const { user }             = useAuth()
   const [processing, setProcessing] = useState(false)
 
   const handleSubmit = async e => {
@@ -43,7 +43,7 @@ export default function Checkout() {
       if (error) throw new Error(error)
       window.location.href = url
     } catch (err) {
-      alert('Chyba: ' + err.message)
+      alert('Chyba pri spracovaní objednávky: ' + err.message)
       setProcessing(false)
     }
   }
@@ -52,12 +52,50 @@ export default function Checkout() {
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Doprava a platba</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* ... tvoje polia pre street, city, zip, phone ... */}
-        <div className="text-xl font-bold">Suma: {total.toFixed(2)} €</div>
+        <div>
+          <label className="block font-medium">Telefón</label>
+          <input
+            name="phone"
+            type="tel"
+            required
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block font-medium">Ulica a číslo</label>
+          <input
+            name="street"
+            required
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium">Mesto</label>
+            <input
+              name="city"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <label className="block font-medium">PSČ</label>
+            <input
+              name="zip"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+        </div>
+
+        <div className="text-xl font-bold">
+          Suma k úhrade: {total.toFixed(2)} €
+        </div>
+
         <button
           type="submit"
           disabled={processing}
-          className="w-full py-3 bg-primary text-white rounded"
+          className="w-full py-3 bg-primary text-white rounded disabled:opacity-50"
         >
           {processing ? 'Spracovávam…' : 'Pokračovať na platbu'}
         </button>
