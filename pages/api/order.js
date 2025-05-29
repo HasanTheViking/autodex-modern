@@ -1,33 +1,65 @@
 // pages/api/order.js
-import { getAuth } from 'firebase/auth'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import nodemailer from 'nodemailer'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   const { cart, data } = req.body
 
-  // over, že používateľ je prihlásený
-  const auth = getAuth()
-  const user = auth.currentUser
-  if (!user) return res.status(401).json({ error: 'Nie ste prihlásený.' })
-
   try {
-    const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0)
-
+    // 1) uložíme objednávku do Firestore
     const orderRef = await addDoc(collection(db, 'orders'), {
-      uid: user.uid,
+      uid: data.uid || '',
       items: cart,
-      total,
+      total: cart.reduce((sum, i) => sum + i.price * i.qty, 0),
+      createdAt: serverTimestamp(),
       status: 'pending',
-      date: serverTimestamp(),    // tu firebase doplní presný čas
-      // prípadne ďalšie polia (note, city, postalcode...)
-      info: data,
+      shipping: {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        city: data.city,
+        address: data.address,
+        postalcode: data.postalcode,
+        note: data.note || ''
+      }
     })
 
-    return res.status(200).json({ ok: true, id: orderRef.id })
+    // 2) emailová notifikácia
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS
+      }
+    })
+
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: process.env.NOTIFY_TO, // sem daj svoj e-mail
+      subject: `Nová objednávka #${orderRef.id}`,
+      text: `
+Objednávka: ${orderRef.id}
+Meno: ${data.name}
+E-mail: ${data.email}
+Telefón: ${data.phone}
+Adresa: ${data.address}, ${data.postalcode} ${data.city}
+Poznámka: ${data.note || '-'}
+Suma: ${cart.reduce((sum, i) => sum + i.price * i.qty, 0).toFixed(2)} €
+      `
+    })
+
+    // 3) vrátime platný JSON
+    return res.status(200).json({
+      ok: true,
+      orderId: orderRef.id
+    })
   } catch (e) {
     console.error(e)
-    return res.status(500).json({ error: 'Chyba pri ukladaní objednávky.' })
+    return res.status(500).json({ error: e.message })
   }
 }
