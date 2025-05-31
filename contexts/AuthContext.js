@@ -1,39 +1,71 @@
 // contexts/AuthContext.js
+// ------------------------
+
 import { createContext, useContext, useEffect, useState } from 'react'
-import { auth } from '../lib/firebase'                     // <-- sem importuj to čo si exportoval
+import { auth } from '../lib/firebase'
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
 } from 'firebase/auth'
 
 const AuthContext = createContext({})
 
+// Hook na jednoduchý prístup k AuthContext z komponentov
+export function useAuth() {
+  return useContext(AuthContext)
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null)
+  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // sledujeme stav prihlásenia
-    const unsubscribe = onAuthStateChanged(auth, u => {
-      setUser(u)
+    // Tento efectos sleduje stav prihlásenia vo Firebase Auth
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        setUser(fbUser)
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     })
-    return unsubscribe
+    return () => unsubscribe()
   }, [])
 
-  const login    = (email, pass) => signInWithEmailAndPassword(auth, email, pass)
-  const register = (email, pass) => createUserWithEmailAndPassword(auth, email, pass)
-  const logout   = ()             => signOut(auth)
+  // Funkcia na registráciu nového používateľa
+  async function register(email, password, displayName) {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    if (auth.currentUser && displayName) {
+      // Nastav displayName, ak bolo odovzdané
+      await updateProfile(auth.currentUser, { displayName })
+    }
+    return userCredential.user
+  }
+
+  // Funkcia na prihlásenie existujúceho používateľa
+  async function login(email, password) {
+    return await signInWithEmailAndPassword(auth, email, password)
+  }
+
+  // Funkcia na odhlásenie
+  function logout() {
+    return signOut(auth)
+  }
+
+  const value = {
+    user,
+    loading,
+    register,
+    login,
+    logout
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  return useContext(AuthContext)
 }
