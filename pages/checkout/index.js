@@ -1,11 +1,23 @@
-import { useState } from 'react'
+// pages/checkout/index.js
+// ------------------------
+
+import { useState, useEffect } from 'react'
 import { useCart } from '../../components/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
+import { useRouter } from 'next/router'
 
 export default function Checkout() {
   const { cartItems, total } = useCart()
   const { user } = useAuth()
   const [processing, setProcessing] = useState(false)
+  const router = useRouter()
+
+  // Ak je košík prázdny, presmeruj späť na hlavnú stránku (napr. produkty)
+  useEffect(() => {
+    if (!cartItems.length) {
+      router.replace('/')
+    }
+  }, [cartItems, router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -17,13 +29,13 @@ export default function Checkout() {
 
     const address = {
       street: e.target.street.value,
-      city: e.target.city.value,
-      zip: e.target.zip.value,
+      city:   e.target.city.value,
+      zip:    e.target.zip.value
     }
     const contact = {
-      name: user.displayName || '',
+      name:  user.displayName || '',
       email: user.email,
-      phone: e.target.phone.value,
+      phone: e.target.phone.value
     }
 
     try {
@@ -35,12 +47,12 @@ export default function Checkout() {
           total,
           address,
           contact,
-          user: { uid: user.uid },
-        }),
+          user: { uid: user.uid }
+        })
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      window.location.href = data.url
+      const { url, error } = await res.json()
+      if (error) throw new Error(error)
+      window.location.href = url
     } catch (err) {
       alert('Chyba pri spracovaní objednávky: ' + err.message)
       setProcessing(false)
@@ -48,7 +60,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 max-w-xl">
       <h1 className="text-3xl font-bold mb-6">Doprava a platba</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -87,7 +99,7 @@ export default function Checkout() {
           </div>
         </div>
 
-        <div className="text-xl font-bold">
+        <div className="text-xl font-bold mb-4">
           Suma k úhrade: {total.toFixed(2)} €
         </div>
 
