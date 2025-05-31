@@ -1,5 +1,3 @@
-// pages/checkout/index.js
-
 import { useState } from 'react'
 import { useCart } from '../../components/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
