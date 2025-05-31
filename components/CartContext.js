@@ -1,11 +1,17 @@
 // components/CartContext.js
-// ------------------------
+// -------------------------
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
-const CartContext = createContext({})
+// Explicitne definujeme defaultné hodnoty, aby sa predísť undefined
+const CartContext = createContext({
+  cartItems: [],
+  total: 0,
+  addToCart: () => {},
+  removeFromCart: () => {}
+})
 
-// Hook na jednoduchý prístup k CartContext z komponentov
+// Hook, ktorým budeme v komponentoch získavať cartItems, total a funkcie
 export function useCart() {
   return useContext(CartContext)
 }
@@ -14,12 +20,11 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([])
   const [total, setTotal] = useState(0)
 
-  // Ak položka už existuje, iba zvýš jej qty. Inak pridaj novú.
   function addToCart(product) {
     setCartItems(prev => {
-      const existing = prev.find((p) => p.id === product.id)
+      const existing = prev.find(p => p.id === product.id)
       if (existing) {
-        return prev.map((p) =>
+        return prev.map(p =>
           p.id === product.id ? { ...p, qty: p.qty + 1 } : p
         )
       } else {
@@ -29,11 +34,11 @@ export function CartProvider({ children }) {
   }
 
   function removeFromCart(productId) {
-    setCartItems(prev => prev.filter((p) => p.id !== productId))
+    setCartItems(prev => prev.filter(p => p.id !== productId))
   }
 
+  // Pri každej zmene cartItems prepočítame newTotal
   useEffect(() => {
-    // Každá zmena položiek v kosíku prepočíta celkovú sumu
     const newTotal = cartItems.reduce(
       (sum, item) => sum + (item.price || 0) * (item.qty || 1),
       0
