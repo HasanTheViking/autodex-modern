@@ -12,9 +12,9 @@ export default function Checkout() {
   const [processing, setProcessing] = useState(false)
   const router = useRouter()
 
-  // Ak je košík prázdny, presmeruj späť na hlavnú stránku (napr. produkty)
+  // Ak je košík prázdny, vrátime na domovskú
   useEffect(() => {
-    if (!cartItems.length) {
+    if (!cartItems || cartItems.length === 0) {
       router.replace('/')
     }
   }, [cartItems, router])
@@ -52,6 +52,7 @@ export default function Checkout() {
       })
       const { url, error } = await res.json()
       if (error) throw new Error(error)
+      // Presmerujeme používateľa na Stripe Checkout
       window.location.href = url
     } catch (err) {
       alert('Chyba pri spracovaní objednávky: ' + err.message)
