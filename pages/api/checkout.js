@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Iba POST je povolené' })
   }
 
-  // 1) Skontroluj vstupné parametre
+  // 1) Over si, že máme všetky parametre
   const { cartItems, total, address, contact, user } = req.body
   if (
     !Array.isArray(cartItems) ||
@@ -45,26 +45,28 @@ export default async function handler(req, res) {
       createdAt: serverTimestamp()
     })
 
-    // 3) Inicializuj Stripe pomocou tajného kľúča zo .env
+    // 3) Inicializuj Stripe
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY
     if (!stripeSecretKey) {
       throw new Error('Chýba STRIPE_SECRET_KEY v env')
     }
-    const stripe = new Stripe(stripeSecretKey, { apiVersion: '2022-11-15' })
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2022-11-15'
+    })
 
-    // 4) Priprav si položky (line_items) pre Stripe
+    // 4) Priprav line_items podľa položiek v košíku
     const lineItems = cartItems.map(item => ({
       price_data: {
         currency: 'eur',
         product_data: {
           name: item.name
         },
-        unit_amount: Math.round(item.price * 100) // v centoch
+        unit_amount: Math.round(item.price * 100)
       },
       quantity: item.qty
     }))
 
-    // 5) Vytvor Stripe Checkout Session
+    // 5) Vytvor Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
@@ -76,7 +78,6 @@ export default async function handler(req, res) {
       }
     })
 
-    // 6) Pošli URL klientovi
     return res.status(200).json({ url: session.url })
   } catch (err) {
     console.error('❌ Checkout error:', err)
