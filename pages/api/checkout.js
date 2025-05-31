@@ -1,56 +1,77 @@
 // pages/api/checkout.js
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
 import Stripe from 'stripe'
+import { getApps, initializeApp } from 'firebase/app'
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2022-11-15'
-})
+// Načítanie env premenných (v Vercel dashboard → Environment Variables)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+let app
+if (!getApps().length) {
+  app = initializeApp({
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    // atď...
+  })
+}
+const db = getFirestore(app)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Použi POST' })
-  }
-
-  const { cartItems, total, address, contact, user } = req.body
-
-  if (!user?.uid) {
-    return res.status(400).json({ error: 'Chýba UID používateľa' })
+    return res.status(405).json({ error: 'Iba POST je povolený' })
   }
 
   try {
-    // Vytvor Stripe Checkout session
+    const { cartItems, total, address, contact, user } = req.body
+
+    // Kontrola dát
+    if (!user?.uid || !Array.isArray(cartItems) || !total) {
+      return res.status(400).json({ error: 'Neplatné vstupné parametre' })
+    }
+
+    // Vytvorenie session v Stripe
+    const line_items = cartItems.map((item) => ({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: item.name,
+        },
+        unit_amount: Math.round(item.price * 100), // v centoch
+      },
+      quantity: item.qty,
+    }))
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: cartItems.map(item => ({
-        price_data: {
-          currency: 'eur',
-          product_data: { name: item.name },
-          unit_amount: Math.round(item.price * 100)
-        },
-        quantity: item.qty
-      })),
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      line_items,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout`,
-      metadata: { uid: user.uid }
+      customer_email: contact.email,
+      metadata: {
+        uid: user.uid,
+      },
     })
 
-    // Ulož objednávku do Firestore
-    await addDoc(collection(db, 'orders'), {
-      uid:        user.uid,
-      items:      cartItems,
+    // Uloženie objednávky do Firestore
+    const docRef = await addDoc(collection(db, 'orders'), {
+      uid: user.uid,
+      cartItems,
       total,
       address,
       contact,
-      status:     'pending',
-      createdAt:  serverTimestamp()
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      checkoutSessionId: session.id,
     })
 
-    // Vráťme URL na presmerovanie
-    res.status(200).json({ url: session.url })
+    // Vrátime URL, na ktorú má klient presmerovať
+    return res.status(200).json({ url: session.url })
   } catch (err) {
-    console.error('❌ Checkout error:', err)
-    res.status(500).json({ error: err.message || String(err) })
+    console.error('❌ Checkout API error:', err)
+    return res
+      .status(500)
+      .json({ error: err.message || 'Neznáma chyba na serveri' })
   }
 }
