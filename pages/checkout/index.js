@@ -1,4 +1,5 @@
 // pages/checkout/index.js
+
 import { useState } from 'react'
 import { useCart } from '../../components/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -41,7 +42,6 @@ export default function Checkout() {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      // Stripe vráti { url: 'https://checkout.stripe.com/…' }
       window.location.href = data.url
     } catch (err) {
       alert('Chyba pri spracovaní objednávky: ' + err.message)
