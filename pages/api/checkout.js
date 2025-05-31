@@ -1,9 +1,8 @@
-// pages/api/checkout.js
-
 import Stripe from 'stripe'
 import { db } from '../../lib/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
+// Stripe hodnota sa načíta z process.env. STRIPE_SECRET_KEY
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export default async function handler(req, res) {
@@ -14,7 +13,7 @@ export default async function handler(req, res) {
   try {
     const { cartItems, total, address, contact, user } = req.body
 
-    // 1. Overenie vstupov
+    // 1) Overenie vstupov
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
       throw new Error('Košík je prázdny alebo nesprávny formát.')
     }
@@ -41,7 +40,7 @@ export default async function handler(req, res) {
       throw new Error('Používateľ nie je prihlásený.')
     }
 
-    // 2. Príprava položiek pre Stripe
+    // 2) Príprava položiek pre Stripe
     const line_items = cartItems.map((item) => {
       if (
         !item.name ||
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
       }
     })
 
-    // 3. Vytvorenie Stripe Checkout Session
+    // 3) Vytvorenie Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items,
@@ -78,7 +77,7 @@ export default async function handler(req, res) {
       },
     })
 
-    // 4. Uloženie objednávky do Firestore
+    // 4) Uloženie objednávky do Firestore
     await addDoc(collection(db, 'orders'), {
       userId: user.uid,
       items: cartItems,
@@ -90,7 +89,7 @@ export default async function handler(req, res) {
       sessionId: session.id,
     })
 
-    // 5. Vraciame URL pre presmerovanie
+    // 5) Vrátime frontendu URL pre presmerovanie
     return res.status(200).json({ url: session.url })
   } catch (err) {
     console.error('❌ Checkout error:', err)
