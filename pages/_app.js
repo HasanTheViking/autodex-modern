@@ -1,3 +1,6 @@
+// pages/_app.js
+// ------------------------
+
 import '../styles/globals.css'
 import { CartProvider } from '../components/CartContext'
 import { AuthProvider } from '../contexts/AuthContext'
